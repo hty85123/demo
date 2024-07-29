@@ -1,27 +1,24 @@
 package com.example.demo.security;
 
-import com.example.demo.model.Member;
+
+import com.example.demo.repository.MemberRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 public class UserDetailsServiceImpl implements UserDetailsService {
-    private final Map<String, Member> memberMap = new HashMap<>();
 
-    public UserDetailsServiceImpl(List<Member> members) {
-        members.forEach(m -> memberMap.put(m.getUsername(), m));
+    private final MemberRepository memberRepository;
+    
+    public UserDetailsServiceImpl(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
     }
 
+    @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        var member = memberMap.get(username);
-        if (member == null) {
-            throw new UsernameNotFoundException("Can't find username: " + username);
-        }
-
+        var member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Can't find username: " + username));
         return new MemberUserDetails(member);
     }
 }

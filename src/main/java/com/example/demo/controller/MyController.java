@@ -1,15 +1,12 @@
 package com.example.demo.controller;
 
-import com.example.demo.model.LoginRequest;
-import com.example.demo.model.LoginResponse;
-import com.example.demo.model.TokenRefreshRequest;
-import com.example.demo.model.TokenRefreshResponse;
+import com.example.demo.model.*;
+import com.example.demo.repository.MemberRepository;
 import com.example.demo.security.JwtService;
 import com.example.demo.security.MemberUserDetails;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,11 +16,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.util.List;
+import java.util.Optional;
+
 
 @RestController
 public class MyController {
-//    private static final String BEARER_PREFIX = "Bearer ";
 
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -32,7 +30,10 @@ public class MyController {
     private JwtService jwtService;
 
     @Autowired
-    private UserDetailsService userDetailsService; // 注入 UserDetailsService
+    private UserDetailsService userDetailsService;
+
+    @Autowired
+    private MemberRepository memberRepository;
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
@@ -45,8 +46,10 @@ public class MyController {
             String refreshToken = jwtService.createRefreshToken(user);
 
             return ResponseEntity.ok(LoginResponse.of(accessToken, refreshToken, user));
-        } catch (Exception e) {
+        } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
 
@@ -67,16 +70,6 @@ public class MyController {
         }
     }
 
-//    @GetMapping("/who-am-i")
-//    public Map<String, Object> whoAmI(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
-//        var jwt = authorization.substring(BEARER_PREFIX.length());
-//        try {
-//            return jwtService.parseToken(jwt, false);
-//        } catch (JwtException e) {
-//            throw new BadCredentialsException(e.getMessage(), e);
-//        }
-//    }
-
     @GetMapping("/home")
     public ResponseEntity<String> home() {
         var principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -92,4 +85,43 @@ public class MyController {
                 userDetails.getAuthorities());
         return ResponseEntity.ok(response);
     }
-}
+
+    @PostMapping("/members")
+    public ResponseEntity<Member> addMember(@RequestBody Member member) {
+        memberRepository.save(member);
+        return ResponseEntity.status(HttpStatus.CREATED).body(member);
+    }
+
+    @DeleteMapping("/members/{username}")
+    public ResponseEntity<Void> deleteMember(@PathVariable String username) {
+        memberRepository.deleteByUsername(username);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @PutMapping("/members/{username}")
+    public ResponseEntity<Member> updateMember(@PathVariable String username, @RequestBody Member updatedMember) {
+        Optional<Member> existingMember = memberRepository.findByUsername(username);
+        if (existingMember.isPresent()) {
+            Member member = existingMember.get();
+            member.setPassword(updatedMember.getPassword());
+            member.setNickname(updatedMember.getNickname());
+            member.setAuthorities(updatedMember.getAuthorities());
+            memberRepository.save(member);
+            return ResponseEntity.ok(member);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+    }
+
+    @GetMapping("/members/{username}")
+    public ResponseEntity<Member> getMember(@PathVariable String username) {
+        Optional<Member> member = memberRepository.findByUsername(username);
+        return member.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(null));
+    }
+
+    @GetMapping("/members")
+    public ResponseEntity<List<Member>> getAllMembers() {
+        List<Member> members = memberRepository.findAll();
+        return ResponseEntity.ok(members);
+    }}

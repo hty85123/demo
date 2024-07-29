@@ -1,7 +1,7 @@
 package com.example.demo.security;
 
-import com.example.demo.model.Member;
-import com.example.demo.model.MemberAuthority;
+
+import com.example.demo.repository.MemberRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,15 +48,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public UserDetailsService userDetailsService() {
-        var member1 = new Member();
-        member1.setId("1");
-        member1.setUsername("user1");
-        member1.setPassword("111");
-        member1.setNickname("One");
-        member1.setAuthorities(List.of(MemberAuthority.USER, MemberAuthority.ADMINISTRATOR));
-
-        return new UserDetailsServiceImpl(List.of(member1));
+    public UserDetailsService userDetailsService(MemberRepository memberRepository) {
+        return new UserDetailsServiceImpl(memberRepository);
     }
 
     @Bean
