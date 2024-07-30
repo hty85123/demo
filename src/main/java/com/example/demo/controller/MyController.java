@@ -1,9 +1,12 @@
 package com.example.demo.controller;
 
+import com.example.demo.exception.MemberAlreadyExistsException;
+import com.example.demo.exception.MemberNotFoundException;
 import com.example.demo.model.*;
 import com.example.demo.repository.MemberRepository;
 import com.example.demo.security.JwtService;
 import com.example.demo.security.MemberUserDetails;
+import com.example.demo.service.MemberService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +36,7 @@ public class MyController {
     private UserDetailsService userDetailsService;
 
     @Autowired
-    private MemberRepository memberRepository;
+    private MemberService memberService;
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
@@ -78,7 +81,7 @@ public class MyController {
         }
 
         var userDetails = (MemberUserDetails) principal;
-        String response = String.format("嗨，你的編號是%s%n帳號：%s%n暱稱：%s%n權限：%s",
+        String response = String.format("Hi, your ID is %s%nUsername: %s%nNickname: %s%nAuthorities: %s",
                 userDetails.getId(),
                 userDetails.getUsername(),
                 userDetails.getNickname(),
@@ -88,40 +91,47 @@ public class MyController {
 
     @PostMapping("/members")
     public ResponseEntity<Member> addMember(@RequestBody Member member) {
-        memberRepository.save(member);
-        return ResponseEntity.status(HttpStatus.CREATED).body(member);
+        try {
+            Member createdMember = memberService.addMember(member);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdMember);
+        } catch (MemberAlreadyExistsException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
+        }
     }
 
     @DeleteMapping("/members/{username}")
     public ResponseEntity<Void> deleteMember(@PathVariable String username) {
-        memberRepository.deleteByUsername(username);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        try {
+            memberService.deleteMember(username);
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        } catch (MemberNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 
     @PutMapping("/members/{username}")
     public ResponseEntity<Member> updateMember(@PathVariable String username, @RequestBody Member updatedMember) {
-        Optional<Member> existingMember = memberRepository.findByUsername(username);
-        if (existingMember.isPresent()) {
-            Member member = existingMember.get();
-            member.setPassword(updatedMember.getPassword());
-            member.setNickname(updatedMember.getNickname());
-            member.setAuthorities(updatedMember.getAuthorities());
-            memberRepository.save(member);
+        try {
+            Member member = memberService.updateMember(username, updatedMember);
             return ResponseEntity.ok(member);
-        } else {
+        } catch (MemberNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
 
     @GetMapping("/members/{username}")
-    public ResponseEntity<Member> getMember(@PathVariable String username) {
-        Optional<Member> member = memberRepository.findByUsername(username);
-        return member.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(null));
+    public ResponseEntity<Member> getMember(@PathVariable("username") String username) {
+        try {
+            Member member = memberService.getMemberByUsername(username);
+            return ResponseEntity.ok(member);
+        } catch (MemberNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
     }
 
     @GetMapping("/members")
     public ResponseEntity<List<Member>> getAllMembers() {
-        List<Member> members = memberRepository.findAll();
+        List<Member> members = memberService.getAllMembers();
         return ResponseEntity.ok(members);
-    }}
+    }
+}
