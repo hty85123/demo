@@ -30,7 +30,6 @@ public class JwtService {
                 .subject(user.getId())
                 .issuedAt(new Date())
                 .expiration(new Date(expirationMillis))
-                .add("nickname", user.getNickname())
                 .add("username", user.getUsername())
                 .add("authorities", user.getMemberAuthorities())
                 .build();

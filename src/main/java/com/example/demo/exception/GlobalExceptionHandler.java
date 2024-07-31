@@ -14,17 +14,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<String> handleBadCredentialsException(BadCredentialsException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password error occurred: "+ ex.getMessage());
     }
 
     @ExceptionHandler(JwtException.class)
     public ResponseEntity<String> handleJwtException(JwtException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid JWT token");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid JWT token error occurred: "+ ex.getMessage());
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<String> handleUsernameNotFoundException(UsernameNotFoundException ex, WebRequest request) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found error occurred: " + ex.getMessage());
     }
 
     @ExceptionHandler(MemberNotFoundException.class)

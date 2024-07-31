@@ -1,27 +1,25 @@
 package com.example.demo.controller;
 
-import com.example.demo.exception.MemberAlreadyExistsException;
-import com.example.demo.exception.MemberNotFoundException;
 import com.example.demo.model.*;
-import com.example.demo.repository.MemberRepository;
 import com.example.demo.security.JwtService;
 import com.example.demo.security.MemberUserDetails;
 import com.example.demo.service.MemberService;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.logout.LogoutHandler;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
-
 
 @RestController
 public class MyController {
@@ -38,97 +36,91 @@ public class MyController {
     @Autowired
     private MemberService memberService;
 
+    @Autowired
+    private LogoutHandler customLogoutHandler;
+
+    @Autowired
+    private LogoutSuccessHandler customLogoutSuccessHandler;
+
+    // Handle user login, generate and return JWT tokens
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-        try {
-            var token = new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword());
-            var auth = authenticationManager.authenticate(token);
-            var user = (MemberUserDetails) auth.getPrincipal();
+        var token = new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword());
+        var auth = authenticationManager.authenticate(token);
+        var user = (MemberUserDetails) auth.getPrincipal();
 
-            String accessToken = jwtService.createAccessToken(user);
-            String refreshToken = jwtService.createRefreshToken(user);
+        String accessToken = jwtService.createAccessToken(user);
+        String refreshToken = jwtService.createRefreshToken(user);
 
-            return ResponseEntity.ok(LoginResponse.of(accessToken, refreshToken, user));
-        } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
+        return ResponseEntity.ok(LoginResponse.of(accessToken, refreshToken, user));
     }
 
+    //Logout user, generate and return empty JWT tokens
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+        SecurityContextHolder.clearContext();
+        return ResponseEntity.status(HttpStatus.OK).build();
+    }
+
+
+    // Refresh JWT token
     @PostMapping("/refresh-token")
     public ResponseEntity<TokenRefreshResponse> refreshToken(@RequestBody TokenRefreshRequest request) {
-        try {
-            // 驗證 Refresh Token
-            Claims claims = jwtService.parseToken(request.getRefreshToken(), true);
-            String username = claims.get("username", String.class);
+        Claims claims = jwtService.parseToken(request.getRefreshToken(), true);
+        String username = claims.get("username", String.class);
 
-            // 創建新的 Access Token
-            MemberUserDetails userDetails = (MemberUserDetails) userDetailsService.loadUserByUsername(username);
-            String newAccessToken = jwtService.createAccessToken(userDetails);
+        MemberUserDetails userDetails = (MemberUserDetails) userDetailsService.loadUserByUsername(username);
+        String newAccessToken = jwtService.createAccessToken(userDetails);
 
-            return ResponseEntity.ok(new TokenRefreshResponse(newAccessToken));
-        } catch (JwtException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
-        }
+        return ResponseEntity.ok(new TokenRefreshResponse(newAccessToken));
     }
 
+    // Return home page information with user details if authenticated
     @GetMapping("/home")
     public ResponseEntity<String> home() {
         var principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if ("anonymousUser".equals(principal)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("你尚未經過身份認證");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
         }
 
         var userDetails = (MemberUserDetails) principal;
-        String response = String.format("Hi, your ID is %s%nUsername: %s%nNickname: %s%nAuthorities: %s",
+        String response = String.format("Hi, your ID is %s%nUsername: %s%nAuthorities: %s",
                 userDetails.getId(),
                 userDetails.getUsername(),
-                userDetails.getNickname(),
                 userDetails.getAuthorities());
         return ResponseEntity.ok(response);
     }
 
+    // Add a new member
     @PostMapping("/members")
     public ResponseEntity<Member> addMember(@RequestBody Member member) {
-        try {
-            Member createdMember = memberService.addMember(member);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdMember);
-        } catch (MemberAlreadyExistsException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
-        }
+        Member createdMember = memberService.addMember(member);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdMember);
     }
 
+    // Delete a member by username
     @DeleteMapping("/members/{username}")
     public ResponseEntity<Void> deleteMember(@PathVariable String username) {
-        try {
-            memberService.deleteMember(username);
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-        } catch (MemberNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+        memberService.deleteMember(username);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
+    // Update a member by username
     @PutMapping("/members/{username}")
     public ResponseEntity<Member> updateMember(@PathVariable String username, @RequestBody Member updatedMember) {
-        try {
-            Member member = memberService.updateMember(username, updatedMember);
-            return ResponseEntity.ok(member);
-        } catch (MemberNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-        }
+        Member member = memberService.updateMember(username, updatedMember);
+        return ResponseEntity.ok(member);
     }
 
+    // Get a member by username
     @GetMapping("/members/{username}")
     public ResponseEntity<Member> getMember(@PathVariable("username") String username) {
-        try {
-            Member member = memberService.getMemberByUsername(username);
-            return ResponseEntity.ok(member);
-        } catch (MemberNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-        }
+        Member member = memberService.getMemberByUsername(username);
+        return ResponseEntity.ok(member);
+
     }
 
+    // Get all members
     @GetMapping("/members")
     public ResponseEntity<List<Member>> getAllMembers() {
         List<Member> members = memberService.getAllMembers();

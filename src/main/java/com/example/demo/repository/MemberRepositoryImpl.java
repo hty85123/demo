@@ -1,7 +1,6 @@
 package com.example.demo.repository;
 
 import com.example.demo.exception.MemberAlreadyExistsException;
-import com.example.demo.exception.MemberNotFoundException;
 import com.example.demo.model.Member;
 import org.springframework.stereotype.Repository;
 
@@ -30,18 +29,12 @@ public class MemberRepositoryImpl implements MemberRepository {
     }
 
     @Override
-    public void update(Member member) throws MemberNotFoundException {
-        if (!memberMap.containsKey(member.getUsername())) {
-            throw new MemberNotFoundException("Member not found: " + member.getUsername());
-        }
+    public void update(Member member) {
         memberMap.put(member.getUsername(), member);
     }
 
     @Override
-    public void deleteByUsername(String username) throws MemberNotFoundException {
-        if (!memberMap.containsKey(username)) {
-            throw new MemberNotFoundException("Member not found: " + username);
-        }
+    public void deleteByUsername(String username) {
         memberMap.remove(username);
     }
 }

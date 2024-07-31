@@ -12,11 +12,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
+
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -25,57 +27,52 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private UserDetailsService userDetailsService;
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
-        // 取得 header
+
+        // Get the Authorization header from the request
         var authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        // If the Authorization header is missing or doesn't start with "Bearer ", continue the filter chain
         if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 解析 JWT
         var jwt = authHeader.substring(BEARER_PREFIX.length());
         Claims claims;
         try {
             claims = jwtService.parseToken(jwt, false);
         } catch (JwtException e) {
+            // If the JWT token is invalid, return an unauthorized response
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("Invalid JWT token");
             return;
         }
 
-        // 建立 UserDetails 物件
-        var userDetails = new MemberUserDetails();
-        userDetails.setId(claims.getSubject());
-        userDetails.setUsername(claims.get("username", String.class));
-        userDetails.setNickname(claims.get("nickname", String.class));
-
-        var authorities = claims.get("authorities");
-        List<String> memberAuthorities;
-        if (authorities instanceof List<?>) {
-            memberAuthorities = ((List<?>) authorities).stream()
-                    .filter(item -> item instanceof String)
-                    .map(item -> (String) item)
-                    .toList();
-        } else {
-            throw new IllegalArgumentException("Invalid authorities format");
+        // Load user details from database to ensure they still exist
+        String username = claims.get("username", String.class);
+        MemberUserDetails userDetails;
+        try {
+            userDetails = (MemberUserDetails) userDetailsService.loadUserByUsername(username);
+        } catch (UsernameNotFoundException e) {
+            // If the user is not found, return an unauthorized response
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("User not found");
+            return;
         }
 
-        var memberAuthoritiesEnum = memberAuthorities.stream()
-                .map(MemberAuthority::valueOf)
-                .toList();
-        userDetails.setMemberAuthorities(memberAuthoritiesEnum);
-
-        // 放入 Security Context
         var token = new UsernamePasswordAuthenticationToken(
                 userDetails,
                 null,
                 userDetails.getAuthorities()
         );
+        // Set the authentication in the security context
         SecurityContextHolder.getContext().setAuthentication(token);
-
+        // Continue the filter chain
         filterChain.doFilter(request, response);
     }
 }

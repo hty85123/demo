@@ -27,7 +27,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity httpSecurity,
-            JwtAuthenticationFilter jwtAuthFilter
+            JwtAuthenticationFilter jwtAuthFilter,
+            CustomLogoutHandler customLogoutHandler,
+            CustomLogoutSuccessHandler customLogoutSuccessHandler
     ) throws Exception {
         return httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
@@ -37,6 +39,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/home").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthFilter, BasicAuthenticationFilter.class)
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .addLogoutHandler(customLogoutHandler)
+                        .logoutSuccessHandler(customLogoutSuccessHandler)
+                )
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfiguration = new CorsConfiguration();
                     corsConfiguration.setAllowedOrigins(List.of("http://localhost:3000")); // 前端的URL

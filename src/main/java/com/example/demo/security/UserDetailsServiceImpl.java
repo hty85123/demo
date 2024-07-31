@@ -1,6 +1,6 @@
 package com.example.demo.security;
 
-
+import com.example.demo.model.Member;
 import com.example.demo.repository.MemberRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -16,11 +16,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        var member = memberRepository.findByUsername(username);
+        Member member = memberRepository.findByUsername(username);
         if (member == null) {
             throw new UsernameNotFoundException(username);
         }
-
         return new MemberUserDetails(member);
     }
 }

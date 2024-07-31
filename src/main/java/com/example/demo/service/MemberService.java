@@ -2,7 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.exception.MemberNotFoundException;
 import com.example.demo.model.Member;
-import com.example.demo.repository.MemberRepositoryImpl;
+import com.example.demo.repository.MemberRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -12,7 +12,7 @@ import java.util.List;
 public class MemberService {
 
     @Autowired
-    private MemberRepositoryImpl memberRepository;
+    private MemberRepository memberRepository;
 
     // Add a new member
     public Member addMember(Member member) {
@@ -36,10 +36,7 @@ public class MemberService {
 
     // Update a member's information
     public Member updateMember(String username, Member updatedMember) {
-        Member member = memberRepository.findByUsername(username);
-        if (member == null) {
-            throw new MemberNotFoundException("Member not found: " + username);
-        }
+        Member member = getMemberByUsername(username);
 
         member.setPassword(updatedMember.getPassword());
         member.setNickname(updatedMember.getNickname());
@@ -50,6 +47,7 @@ public class MemberService {
 
     // Delete a member by username
     public void deleteMember(String username) {
-        memberRepository.deleteByUsername(username);
+        Member member = getMemberByUsername(username);
+        memberRepository.deleteByUsername(member.getUsername());
     }
 }
