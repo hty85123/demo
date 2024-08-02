@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.exception.MemberAlreadyExistsException;
 import com.example.demo.exception.MemberNotFoundException;
 import com.example.demo.model.Member;
 import com.example.demo.repository.MemberRepository;
@@ -16,7 +17,10 @@ public class MemberService {
 
     // Add a new member
     public Member addMember(Member member) {
-        memberRepository.saveMember(member);
+        if (memberRepository.findByUsername(member.getUsername()) != null) {
+            throw new MemberAlreadyExistsException("Member already exists: " + member.getUsername());
+        }
+        memberRepository.save(member);
         return member;
     }
 
@@ -37,11 +41,8 @@ public class MemberService {
     // Update a member's information
     public Member updateMember(String username, Member updatedMember) {
         Member member = getMemberByUsername(username);
-
-        member.setPassword(updatedMember.getPassword());
         member.setNickname(updatedMember.getNickname());
-        member.setAuthorities(updatedMember.getAuthorities());
-        memberRepository.update(member);
+        memberRepository.save(member);
         return member;
     }
 

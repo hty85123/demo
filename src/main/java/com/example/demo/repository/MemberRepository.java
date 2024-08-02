@@ -1,14 +1,11 @@
 package com.example.demo.repository;
 
-import com.example.demo.exception.MemberAlreadyExistsException;
 import com.example.demo.model.Member;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
 
-import java.util.List;
-
-public interface MemberRepository {
-    Member findByUsername(String username);
-    List<Member> findAll();
-    void saveMember(Member member) throws MemberAlreadyExistsException;
-    void update(Member member);
-    void deleteByUsername(String username);
+@Repository
+public interface MemberRepository extends MongoRepository<Member, String> {
+    Member findByUsername(String s);
+    void deleteByUsername(String s);
 }
