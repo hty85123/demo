@@ -4,10 +4,13 @@ import com.example.demo.exception.MemberAlreadyExistsException;
 import com.example.demo.model.Member;
 import org.springframework.stereotype.Repository;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Repository
-public class MemberRepositoryImpl implements MemberRepository {
+public class AnotherMapMemberRepository implements MemberRepository {
     private final Map<String, Member> memberMap = new HashMap<>();
 
     @Override
@@ -21,7 +24,7 @@ public class MemberRepositoryImpl implements MemberRepository {
     }
 
     @Override
-    public void insert(Member member) throws MemberAlreadyExistsException {
+    public void saveMember(Member member) throws MemberAlreadyExistsException {
         if (memberMap.containsKey(member.getUsername())) {
             throw new MemberAlreadyExistsException("Member already exists: " + member.getUsername());
         }
